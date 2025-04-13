@@ -2,15 +2,13 @@ require("dotenv").config();
 const express = require("express");
 const { v4: uuidv4 } = require("uuid");
 const axios = require("axios");
-const cors = require("cors");
 
 const app = express();
-app.use(cors());
 app.use(express.json());
 
 let paymentStatus = {};
 
-// Gera cobrança Pix
+// Geração do QR Code Pix
 app.get("/pagar", async (req, res) => {
   try {
     const credentials = Buffer.from(
@@ -77,13 +75,26 @@ app.get("/pagar", async (req, res) => {
   }
 });
 
-// Webhook básico — responde sempre 200 OK
+// Webhook da Efi
 app.post("/webhook", (req, res) => {
-  console.log("🟢 Webhook ping recebido:", new Date().toISOString());
-  res.status(200).json({ ok: true });
+  res.status(200).send(); // responde 200 imediatamente
+
+  try {
+    console.log("Webhook recebido:", JSON.stringify(req.body, null, 2));
+    const { pix } = req.body;
+    if (pix && pix.length > 0) {
+      const { txid, status } = pix[0];
+      if (status === "CONCLUIDA") {
+        paymentStatus[txid] = true;
+        console.log("✅ Pagamento confirmado para txid:", txid);
+      }
+    }
+  } catch (err) {
+    console.error("Erro ao processar webhook:", err);
+  }
 });
 
-// Verificação manual
+// Consulta de status de pagamento
 app.post("/check-payment", (req, res) => {
   try {
     const { txid } = req.body;
@@ -95,7 +106,8 @@ app.post("/check-payment", (req, res) => {
   }
 });
 
+// Inicialização
 const PORT = process.env.PORT || 8080;
-app.listen(PORT, () => {
-  console.log(`✅ Pix API running on port ${PORT}`);
+app.listen(PORT, "0.0.0.0", () => {
+  console.log(`✅ Pix API rodando na porta ${PORT}`);
 });
