@@ -11,33 +11,34 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// Configuração dos certificados para a Gerencianet
-const cert = fs.readFileSync(path.join(__dirname, "certificado.pem"));
-const key = fs.readFileSync(path.join(__dirname, "chave.pem"));
+// Load the .p12 certificate from the environment variable
+const p12Path = path.join(__dirname, process.env.GN_CERT); // "producao-546000.p12"
+const p12Buffer = fs.readFileSync(p12Path);
 
 const httpsAgent = new https.Agent({
-  cert,
-  key,
+  pfx: p12Buffer,
+  passphrase: "", // Add passphrase if your .p12 file is password-protected
   rejectUnauthorized: false,
 });
 
-// Armazenar status de pagamento temporariamente (use um banco de dados em produção)
+// Temporary storage for payment status
 let paymentStatus = {};
 
 app.get("/pagar", async (req, res) => {
   try {
-    // Obter o token de autenticação
-    const client_id = process.env.CLIENT_ID;
-    const client_secret = process.env.CLIENT_SECRET;
+    // Retrieve credentials from environment variables
+    const client_id = process.env.GN_CLIENT_ID;
+    const client_secret = process.env.GN_CLIENT_SECRET;
 
     if (!client_id || !client_secret) {
-      throw new Error("CLIENT_ID ou CLIENT_SECRET não configurados.");
+      throw new Error("GN_CLIENT_ID or GN_CLIENT_SECRET not configured.");
     }
 
     const basicAuth = Buffer.from(`${client_id}:${client_secret}`).toString("base64");
 
+    // Get authentication token
     const tokenResponse = await axios.post(
-      "https://pix.api.efipay.com.br/oauth/token",
+      `${process.env.GN_ENDPOINT}/oauth/token`,
       { grant_type: "client_credentials" },
       {
         httpsAgent,
@@ -50,10 +51,10 @@ app.get("/pagar", async (req, res) => {
 
     const access_token = tokenResponse.data.access_token;
 
-    // Gerar um txid único
+    // Generate a unique txid
     const txid = uuidv4().replace(/-/g, "").slice(0, 26) + Date.now().toString(36).slice(0, 9);
 
-    // Criar a cobrança Pix
+    // Create Pix charge
     const body = {
       calendario: { expiracao: 3600 },
       devedor: { cpf: "12345678909", nome: "Cliente Teste" },
@@ -63,7 +64,7 @@ app.get("/pagar", async (req, res) => {
     };
 
     const pixResponse = await axios.put(
-      `https://pix.api.efipay.com.br/v2/cob/${txid}`,
+      `${process.env.GN_ENDPOINT}/v2/cob/${txid}`,
       body,
       {
         httpsAgent,
@@ -76,9 +77,9 @@ app.get("/pagar", async (req, res) => {
 
     const loc = pixResponse.data.loc.id;
 
-    // Obter o QR Code
+    // Get QR code
     const qrCodeResponse = await axios.get(
-      `https://pix.api.efipay.com.br/v2/loc/${loc}/qrcode`,
+      `${process.env.GN_ENDPOINT}/v2/loc/${loc}/qrcode`,
       {
         httpsAgent,
         headers: {
@@ -88,19 +89,19 @@ app.get("/pagar", async (req, res) => {
       }
     );
 
-    // Retornar os dados do Pix
+    // Return Pix data
     res.json({
       qrCodeBase64: qrCodeResponse.data.imagemQrcode,
       pixString: qrCodeResponse.data.qrcode,
       txid: txid,
     });
   } catch (err) {
-    console.error("Erro ao gerar PIX:", err.message);
+    console.error("Error generating Pix:", err.message);
     res.status(500).json({ erro: "Erro ao gerar PIX: " + err.message });
   }
 });
 
-// Rota para receber notificações da Gerencianet
+// Webhook to receive payment notifications
 app.post("/webhook", (req, res) => {
   try {
     const { pix } = req.body;
@@ -108,33 +109,33 @@ app.post("/webhook", (req, res) => {
       const { txid, status } = pix[0];
       if (status === "CONCLUIDA") {
         paymentStatus[txid] = true;
-        console.log(`Pagamento ${txid} confirmado`);
+        console.log(`Payment ${txid} confirmed`);
       }
     }
     res.sendStatus(200);
   } catch (err) {
-    console.error("Erro no webhook:", err.message);
+    console.error("Webhook error:", err.message);
     res.sendStatus(500);
   }
 });
 
-// Rota para o frontend verificar o status do pagamento
+// Endpoint to check payment status
 app.post("/check-payment", (req, res) => {
   try {
     const { txid } = req.body;
     if (!txid) {
-      return res.status(400).json({ erro: "txid não fornecido" });
+      return res.status(400).json({ erro: "txid not provided" });
     }
     const isPaid = paymentStatus[txid] || false;
     res.json({ paid: isPaid });
   } catch (err) {
-    console.error("Erro ao verificar pagamento:", err.message);
-    res.status(500).json({ erro: "Erro ao verificar pagamento" });
+    console.error("Error checking payment:", err.message);
+    res.status(500).json({ erro: "Error checking payment" });
   }
 });
 
-// Configurar a porta para a Render
+// Start server
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-  console.log(`API Pix rodando na porta ${PORT}`);
+  console.log(`Pix API running on port ${PORT}`);
 });
