@@ -11,8 +11,14 @@ const app = express();
 app.use(bodyParser.json());
 
 const path = require("path");
-console.log("CAMINHO DO CERTIFICADO:", path.join(__dirname, "producao-546000.p12"));
-const cert = fs.readFileSync(path.join(__dirname, "producao-546000.p12"));
+console.log("CAMINHO DO CERTIFICADO:", path.join(__dirname, "certificado.pem"));
+const cert = fs.readFileSync(path.join(__dirname, "certificado.pem"));
+const key = fs.readFileSync(path.join(__dirname, "chave.pem"));
+
+const httpsAgent = new https.Agent({
+  cert,
+  key,
+});
 
 async function gerarToken() {
     const credentials = Buffer.from(`${process.env.GN_CLIENT_ID}:${process.env.GN_CLIENT_SECRET}`).toString("base64");
@@ -23,7 +29,7 @@ async function gerarToken() {
             Authorization: `Basic ${credentials}`,
             "Content-Type": "application/json",
         },
-        httpsAgent: new https.Agent({ pfx: cert, passphrase: "" }),
+        httpsAgent,
         data: { grant_type: "client_credentials" },
     });
     return response.data.access_token;
@@ -47,7 +53,7 @@ async function gerarCobrancaPix() {
             Authorization: `Bearer ${access_token}`,
             "Content-Type": "application/json",
         },
-        httpsAgent: new https.Agent({ pfx: cert, passphrase: "" }),
+        httpsAgent,
         data: payload,
     });
 
@@ -59,7 +65,7 @@ async function gerarCobrancaPix() {
         headers: {
             Authorization: `Bearer ${access_token}`,
         },
-        httpsAgent: new https.Agent({ pfx: cert, passphrase: "" }),
+        httpsAgent,
     });
 
     return qrResponse.data;
