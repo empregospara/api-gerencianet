@@ -2,6 +2,9 @@ require("dotenv").config();
 const express = require("express");
 const { v4: uuidv4 } = require("uuid");
 const axios = require("axios");
+const fs = require("fs");
+const path = require("path");
+const https = require("https");
 const cors = require("cors");
 
 const app = express();
@@ -10,9 +13,19 @@ app.use(express.json());
 
 let paymentStatus = {};
 
+// carregar certificados PEM
+const cert = fs.readFileSync(path.join(__dirname, "certificado.pem"));
+const key = fs.readFileSync(path.join(__dirname, "chave.pem"));
+
+const httpsAgent = new https.Agent({
+  cert,
+  key,
+  rejectUnauthorized: false, // pode deixar false no Render, mTLS já autentica
+});
+
 app.get("/pagar", async (req, res) => {
   try {
-    // Gerar access_token dinâmico
+    // gerar access_token via OAuth com certificado
     const credentials = Buffer.from(
       `${process.env.GN_CLIENT_ID}:${process.env.GN_CLIENT_SECRET}`
     ).toString("base64");
@@ -25,17 +38,17 @@ app.get("/pagar", async (req, res) => {
           Authorization: `Basic ${credentials}`,
           "Content-Type": "application/json",
         },
+        httpsAgent,
       }
     );
 
     const access_token = tokenResponse.data.access_token;
 
-    // Criar txid único
+    // criar cobrança
     const txid =
       uuidv4().replace(/-/g, "").slice(0, 26) +
       Date.now().toString(36).slice(0, 9);
 
-    // Criar cobrança
     const body = {
       calendario: { expiracao: 3600 },
       devedor: { cpf: "12345678909", nome: "Cliente Teste" },
@@ -44,7 +57,7 @@ app.get("/pagar", async (req, res) => {
       solicitacaoPagador: "Gerar currículo",
     };
 
-    const pixResponse = await axios.put(
+    const cobResponse = await axios.put(
       `${process.env.GN_ENDPOINT}/v2/cob/${txid}`,
       body,
       {
@@ -52,31 +65,32 @@ app.get("/pagar", async (req, res) => {
           Authorization: `Bearer ${access_token}`,
           "Content-Type": "application/json",
         },
+        httpsAgent,
       }
     );
 
-    const loc = pixResponse.data.loc.id;
+    const locId = cobResponse.data.loc.id;
 
-    // Obter QR Code
     const qrCodeResponse = await axios.get(
-      `${process.env.GN_ENDPOINT}/v2/loc/${loc}/qrcode`,
+      `${process.env.GN_ENDPOINT}/v2/loc/${locId}/qrcode`,
       {
         headers: {
           Authorization: `Bearer ${access_token}`,
         },
+        httpsAgent,
       }
     );
 
     res.json({
       qrCodeBase64: qrCodeResponse.data.imagemQrcode,
       pixString: qrCodeResponse.data.qrcode,
-      txid: txid,
+      txid,
     });
   } catch (err) {
     console.error("Erro:", err.response?.data || err.message);
-    res
-      .status(500)
-      .json({ erro: "Erro ao gerar PIX: " + (err.response?.data?.message || err.message) });
+    res.status(500).json({
+      erro: "Erro ao gerar PIX: " + (err.response?.data?.message || err.message),
+    });
   }
 });
 
