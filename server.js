@@ -8,7 +8,6 @@ app.use(express.json());
 
 let paymentStatus = {};
 
-// Geração do Pix
 app.get("/pagar", async (req, res) => {
   try {
     const credentials = Buffer.from(
@@ -62,7 +61,7 @@ app.get("/pagar", async (req, res) => {
       }
     );
 
-    // Simulação: marca como pago automaticamente após 20s (apenas em dev)
+    // simula confirmação automática após 20s (para dev)
     setTimeout(() => {
       paymentStatus[txid] = true;
       console.log("✅ Pagamento confirmado (simulado) para txid:", txid);
@@ -74,12 +73,11 @@ app.get("/pagar", async (req, res) => {
       qrCodeBase64: qr.data.imagemQrcode,
     });
   } catch (err) {
-    console.error("Erro ao gerar Pix:", err.response?.data || err.message);
+    console.error("Erro ao gerar PIX:", err.response?.data || err.message);
     res.status(500).json({ erro: "Erro ao gerar Pix" });
   }
 });
 
-// Verificação de pagamento
 app.post("/check-payment", (req, res) => {
   const { txid } = req.body;
   if (!txid) return res.status(400).json({ erro: "txid não informado" });
@@ -88,8 +86,8 @@ app.post("/check-payment", (req, res) => {
   res.json({ paid: pago });
 });
 
-// Inicialização
-const PORT = process.env.PORT || 8080;
-app.listen(PORT, "0.0.0.0", () => {
-  console.log(`✅ API Pix escutando na porta ${PORT}`);
+// 🚨 Para Render, sem host fixo
+const PORT = process.env.PORT || 10000;
+app.listen(PORT, () => {
+  console.log(`✅ Pix API rodando na porta ${PORT}`);
 });
