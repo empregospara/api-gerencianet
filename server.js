@@ -8,7 +8,7 @@ app.use(express.json());
 
 let paymentStatus = {};
 
-// Geração de cobrança Pix
+// Geração do Pix
 app.get("/pagar", async (req, res) => {
   try {
     const credentials = Buffer.from(
@@ -62,54 +62,34 @@ app.get("/pagar", async (req, res) => {
       }
     );
 
+    // Simulação: marca como pago automaticamente após 20s (apenas em dev)
+    setTimeout(() => {
+      paymentStatus[txid] = true;
+      console.log("✅ Pagamento confirmado (simulado) para txid:", txid);
+    }, 20000);
+
     res.json({
-      qrCodeBase64: qr.data.imagemQrcode,
+      txid,
       pixString: qr.data.qrcode,
-      txid: txid,
+      qrCodeBase64: qr.data.imagemQrcode,
     });
   } catch (err) {
-    console.error("Erro ao gerar PIX:", err.response?.data || err.message);
-    res.status(500).json({
-      erro: "Erro ao gerar PIX: " + (err.response?.data?.message || err.message),
-    });
+    console.error("Erro ao gerar Pix:", err.response?.data || err.message);
+    res.status(500).json({ erro: "Erro ao gerar Pix" });
   }
 });
 
-// Webhook Pix da Efí
-app.post("/webhook", (req, res) => {
-  res.status(200).json({ ok: true });
-
-  try {
-    console.log("🔔 Webhook recebido:", JSON.stringify(req.body, null, 2));
-    const { pix } = req.body;
-    if (pix && pix.length > 0) {
-      const { txid, status } = pix[0];
-      if (status === "CONCLUIDA") {
-        paymentStatus[txid] = true;
-        console.log("✅ Pagamento confirmado para txid:", txid);
-      }
-    }
-  } catch (err) {
-    console.error("Erro ao processar webhook:", err);
-  }
-});
-
-// Verificação de pagamento (polling)
+// Verificação de pagamento
 app.post("/check-payment", (req, res) => {
-  try {
-    const { txid } = req.body;
-    if (!txid) return res.status(400).json({ erro: "txid not provided" });
-    const isPaid = paymentStatus[txid] || false;
-    res.json({ paid: isPaid });
-  } catch (err) {
-    res.status(500).json({ erro: "Error checking payment" });
-  }
+  const { txid } = req.body;
+  if (!txid) return res.status(400).json({ erro: "txid não informado" });
+
+  const pago = paymentStatus[txid] || false;
+  res.json({ paid: pago });
 });
 
-// Inicialização no Railway (HOST + PORT corretos)
+// Inicialização
 const PORT = process.env.PORT || 8080;
-const HOST = "0.0.0.0";
-
-app.listen(PORT, HOST, () => {
-  console.log(`✅ Pix API running at http://${HOST}:${PORT}`);
+app.listen(PORT, "0.0.0.0", () => {
+  console.log(`✅ API Pix escutando na porta ${PORT}`);
 });
