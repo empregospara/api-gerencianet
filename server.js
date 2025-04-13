@@ -10,7 +10,8 @@ const axios = require("axios");
 const app = express();
 app.use(bodyParser.json());
 
-const cert = fs.readFileSync("producao-546000.p12");
+const path = require("path");
+const cert = fs.readFileSync(path.join(__dirname, "producao-546000.p12"));
 
 async function gerarToken() {
     const credentials = Buffer.from(`${process.env.GN_CLIENT_ID}:${process.env.GN_CLIENT_SECRET}`).toString("base64");
