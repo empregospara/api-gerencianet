@@ -11,6 +11,7 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
+// Carrega os certificados para HTTPS + mTLS
 const cert = fs.readFileSync(path.join(__dirname, "certificado.pem"));
 const key = fs.readFileSync(path.join(__dirname, "chave.pem"));
 const httpsAgent = new https.Agent({ cert, key, rejectUnauthorized: false });
@@ -117,7 +118,8 @@ app.post("/check-payment", (req, res) => {
   }
 });
 
+// 🔥 HTTPS + certificados ativos para aceitar chamadas do webhook EfiPay
 const PORT = process.env.PORT || 10000;
-app.listen(PORT, () => {
-  console.log(`Pix API running on port ${PORT}`);
+https.createServer({ key, cert }, app).listen(PORT, () => {
+  console.log(`Pix API HTTPS running on port ${PORT}`);
 });
