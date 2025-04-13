@@ -9,6 +9,9 @@ const path = require("path");
 const app = express();
 app.use(express.json());
 
+const cors = require("cors");
+app.use(cors());
+
 const cert = fs.readFileSync(path.join(__dirname, "certificado.pem"));
 const key = fs.readFileSync(path.join(__dirname, "chave.pem"));
 
