@@ -29,7 +29,7 @@ async function gerarToken() {
 }
 
 async function gerarCobrancaPix() {
-    const txid = uuidv4().substring(0, 35);
+    const txid = `pix${Date.now().toString(36)}`; // Ex: pixl5uwy1u1d1w
     const access_token = await gerarToken();
     const payload = {
         calendario: { expiracao: 3600 },
