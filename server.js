@@ -3,18 +3,16 @@ const express = require("express");
 const { v4: uuidv4 } = require("uuid");
 const axios = require("axios");
 const cors = require("cors");
-const https = require("https");
 
 const app = express();
+
+// ✅ CORS ativado para permitir chamadas da Vercel
 app.use(cors());
 app.use(express.json());
 
-// ✅ AGENTE HTTPS SEM CERTIFICADO — COMPATÍVEL COM RENDER
-const httpsAgent = new https.Agent({ rejectUnauthorized: false });
-
 let paymentStatus = {};
 
-// Gera cobrança Pix e QR Code
+// Rota para gerar Pix + QR Code
 app.get("/pagar", async (req, res) => {
   try {
     const credentials = Buffer.from(
@@ -25,7 +23,6 @@ app.get("/pagar", async (req, res) => {
       `${process.env.GN_ENDPOINT}/oauth/token`,
       { grant_type: "client_credentials" },
       {
-        httpsAgent,
         headers: {
           Authorization: `Basic ${credentials}`,
           "Content-Type": "application/json",
@@ -51,7 +48,6 @@ app.get("/pagar", async (req, res) => {
       `${process.env.GN_ENDPOINT}/v2/cob/${txid}`,
       body,
       {
-        httpsAgent,
         headers: {
           Authorization: `Bearer ${access_token}`,
           "Content-Type": "application/json",
@@ -64,14 +60,13 @@ app.get("/pagar", async (req, res) => {
     const qr = await axios.get(
       `${process.env.GN_ENDPOINT}/v2/loc/${locId}/qrcode`,
       {
-        httpsAgent,
         headers: {
           Authorization: `Bearer ${access_token}`,
         },
       }
     );
 
-    // simula pagamento automático em 20s (apenas para dev/teste)
+    // simula confirmação automática após 20s
     setTimeout(() => {
       paymentStatus[txid] = true;
       console.log("✅ Pagamento confirmado para txid:", txid);
@@ -84,13 +79,11 @@ app.get("/pagar", async (req, res) => {
     });
   } catch (err) {
     console.error("Erro ao gerar PIX:", err.response?.data || err.message);
-    res.status(500).json({
-      erro: "Erro ao gerar Pix",
-    });
+    res.status(500).json({ erro: "Erro ao gerar Pix" });
   }
 });
 
-// Verifica se pagamento foi confirmado (polling)
+// Rota de verificação por polling
 app.post("/check-payment", (req, res) => {
   const { txid } = req.body;
   if (!txid) return res.status(400).json({ erro: "txid não informado" });
@@ -99,7 +92,7 @@ app.post("/check-payment", (req, res) => {
   res.json({ paid: pago });
 });
 
-// Inicializa servidor
+// Inicialização
 const PORT = process.env.PORT || 10000;
 app.listen(PORT, () => {
   console.log(`✅ Pix API rodando na porta ${PORT}`);
