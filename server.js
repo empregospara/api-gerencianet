@@ -1,25 +1,12 @@
 require("dotenv").config();
-const fs = require("fs");
-const https = require("https");
 const express = require("express");
 const { v4: uuidv4 } = require("uuid");
 const axios = require("axios");
-const path = require("path");
 const cors = require("cors");
 
 const app = express();
 app.use(cors());
 app.use(express.json());
-
-// Load the .p12 certificate
-const p12Path = path.join(__dirname, process.env.GN_CERT || "producao-546000.p12");
-const p12Buffer = fs.readFileSync(p12Path);
-
-const httpsAgent = new https.Agent({
-  pfx: p12Buffer,
-  passphrase: "",
-  rejectUnauthorized: false,
-});
 
 let paymentStatus = {};
 
@@ -45,7 +32,6 @@ app.get("/pagar", async (req, res) => {
       `${process.env.GN_ENDPOINT}/v2/cob/${txid}`,
       body,
       {
-        httpsAgent,
         headers: {
           Authorization: `Bearer ${access_token}`,
           "Content-Type": "application/json",
@@ -59,7 +45,6 @@ app.get("/pagar", async (req, res) => {
     const qrCodeResponse = await axios.get(
       `${process.env.GN_ENDPOINT}/v2/loc/${loc}/qrcode`,
       {
-        httpsAgent,
         headers: {
           Authorization: `Bearer ${access_token}`,
         },
