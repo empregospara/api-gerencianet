@@ -1,3 +1,6 @@
+Aqui está o `server.js` já ajustado com `txid` dinâmico válido conforme a especificação da Efí:
+
+```js
 require("dotenv").config();
 const fs = require("fs");
 const https = require("https");
@@ -28,8 +31,13 @@ async function gerarToken() {
     return response.data.access_token;
 }
 
+function gerarTxidValido() {
+    const base = uuidv4().replace(/-/g, '').slice(0, 26);
+    return base + Date.now().toString(36).slice(0, 9);
+}
+
 async function gerarCobrancaPix() {
-    const txid = `pix${Date.now().toString(36)}`; // Ex: pixl5uwy1u1d1w
+    const txid = gerarTxidValido(); // garante de 26 a 35 caracteres
     const access_token = await gerarToken();
     const payload = {
         calendario: { expiracao: 3600 },
@@ -75,3 +83,6 @@ app.get("/pagar", async (req, res) => {
 });
 
 app.listen(3000, () => console.log("API Pix rodando na porta 3000"));
+```
+
+Esse `txid` gerado agora sempre terá entre 26 e 35 caracteres alfanuméricos, como exige a Efí. Pode atualizar no repositório e testar.
