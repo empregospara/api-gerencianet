@@ -10,7 +10,7 @@ app.use(express.json());
 
 let paymentStatus = {};
 
-// Endpoint para gerar cobrança Pix
+// Gera cobrança Pix
 app.get("/pagar", async (req, res) => {
   try {
     const credentials = Buffer.from(
@@ -77,26 +77,13 @@ app.get("/pagar", async (req, res) => {
   }
 });
 
-// Endpoint para receber notificações de pagamento
+// Webhook básico — responde sempre 200 OK
 app.post("/webhook", (req, res) => {
-  res.status(200).json({}); // responde 200 antes de processar
-
-  try {
-    console.log("Webhook recebeu:", JSON.stringify(req.body, null, 2));
-    const { pix } = req.body;
-    if (pix && pix.length > 0) {
-      const { txid, status } = pix[0];
-      if (status === "CONCLUIDA") {
-        paymentStatus[txid] = true;
-        console.log("Pagamento confirmado para txid:", txid);
-      }
-    }
-  } catch (err) {
-    console.error("Erro ao processar webhook:", err);
-  }
+  console.log("🟢 Webhook ping recebido:", new Date().toISOString());
+  res.status(200).json({ ok: true });
 });
 
-// Endpoint para verificar status do pagamento
+// Verificação manual
 app.post("/check-payment", (req, res) => {
   try {
     const { txid } = req.body;
@@ -108,7 +95,6 @@ app.post("/check-payment", (req, res) => {
   }
 });
 
-// Inicia o servidor na porta fornecida pelo Railway ou 8080
 const PORT = process.env.PORT || 8080;
 app.listen(PORT, () => {
   console.log(`✅ Pix API running on port ${PORT}`);
