@@ -11,6 +11,7 @@ const app = express();
 app.use(bodyParser.json());
 
 const path = require("path");
+console.log("CAMINHO DO CERTIFICADO:", path.join(__dirname, "producao-546000.p12"));
 const cert = fs.readFileSync(path.join(__dirname, "producao-546000.p12"));
 
 async function gerarToken() {
