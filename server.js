@@ -1,37 +1,30 @@
-
 require("dotenv").config();
 const fs = require("fs");
-const express = require("express");
 const https = require("https");
-const bodyParser = require("body-parser");
+const express = require("express");
 const { v4: uuidv4 } = require("uuid");
 const axios = require("axios");
+const path = require("path");
 
 const app = express();
-app.use(bodyParser.json());
+app.use(express.json());
 
-const path = require("path");
-console.log("CAMINHO DO CERTIFICADO:", path.join(__dirname, "certificado.pem"));
 const cert = fs.readFileSync(path.join(__dirname, "certificado.pem"));
 const key = fs.readFileSync(path.join(__dirname, "chave.pem"));
 
-const httpsAgent = new https.Agent({
-  cert,
-  key,
-});
+const httpsAgent = new https.Agent({ cert, key });
 
 async function gerarToken() {
     const credentials = Buffer.from(`${process.env.GN_CLIENT_ID}:${process.env.GN_CLIENT_SECRET}`).toString("base64");
-    const response = await axios({
-        method: "POST",
-        url: `${process.env.GN_ENDPOINT}/oauth/token`,
-        headers: {
-            Authorization: `Basic ${credentials}`,
-            "Content-Type": "application/json",
-        },
-        httpsAgent,
-        data: { grant_type: "client_credentials" },
-    });
+    const response = await axios.post(`${process.env.GN_ENDPOINT}/oauth/token`, 
+        { grant_type: "client_credentials" }, 
+        {
+            headers: {
+                Authorization: `Basic ${credentials}`,
+                "Content-Type": "application/json"
+            },
+            httpsAgent
+        });
     return response.data.access_token;
 }
 
@@ -46,25 +39,22 @@ async function gerarCobrancaPix() {
         solicitacaoPagador: "Gerar currículo",
     };
 
-    const response = await axios({
-        method: "PUT",
-        url: `${process.env.GN_ENDPOINT}/v2/cob/${txid}`,
-        headers: {
-            Authorization: `Bearer ${access_token}`,
-            "Content-Type": "application/json",
-        },
-        httpsAgent,
-        data: payload,
-    });
+    const response = await axios.put(
+        `${process.env.GN_ENDPOINT}/v2/cob/${txid}`,
+        payload,
+        {
+            headers: {
+                Authorization: `Bearer ${access_token}`,
+                "Content-Type": "application/json",
+            },
+            httpsAgent,
+        }
+    );
 
-    const location = response.data.loc.id;
+    const loc = response.data.loc.id;
 
-    const qrResponse = await axios({
-        method: "GET",
-        url: `${process.env.GN_ENDPOINT}/v2/loc/${location}/qrcode`,
-        headers: {
-            Authorization: `Bearer ${access_token}`,
-        },
+    const qrResponse = await axios.get(`${process.env.GN_ENDPOINT}/v2/loc/${loc}/qrcode`, {
+        headers: { Authorization: `Bearer ${access_token}` },
         httpsAgent,
     });
 
