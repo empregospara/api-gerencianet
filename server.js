@@ -8,7 +8,7 @@ app.use(express.json());
 
 let paymentStatus = {};
 
-// Geração do QR Code Pix
+// Geração de cobrança Pix
 app.get("/pagar", async (req, res) => {
   try {
     const credentials = Buffer.from(
@@ -75,12 +75,12 @@ app.get("/pagar", async (req, res) => {
   }
 });
 
-// Webhook da Efi
+// Webhook Pix da Efí
 app.post("/webhook", (req, res) => {
-  res.status(200).send(); // responde 200 imediatamente
+  res.status(200).json({ ok: true });
 
   try {
-    console.log("Webhook recebido:", JSON.stringify(req.body, null, 2));
+    console.log("🔔 Webhook recebido:", JSON.stringify(req.body, null, 2));
     const { pix } = req.body;
     if (pix && pix.length > 0) {
       const { txid, status } = pix[0];
@@ -94,7 +94,7 @@ app.post("/webhook", (req, res) => {
   }
 });
 
-// Consulta de status de pagamento
+// Verificação de pagamento (polling)
 app.post("/check-payment", (req, res) => {
   try {
     const { txid } = req.body;
@@ -106,8 +106,10 @@ app.post("/check-payment", (req, res) => {
   }
 });
 
-// Inicialização
+// Inicialização no Railway (HOST + PORT corretos)
 const PORT = process.env.PORT || 8080;
-app.listen(PORT, "0.0.0.0", () => {
-  console.log(`✅ Pix API rodando na porta ${PORT}`);
+const HOST = "0.0.0.0";
+
+app.listen(PORT, HOST, () => {
+  console.log(`✅ Pix API running at http://${HOST}:${PORT}`);
 });
