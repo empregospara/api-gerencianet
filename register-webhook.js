@@ -31,13 +31,14 @@ async function registerWebhook() {
     const response = await axios.put(
       `${process.env.GN_ENDPOINT}/v2/webhook/empregosparaoficial@gmail.com`,
       {
-        webhookUrl: "https://4dbf-2804-2468-4849-cd00-68df-6913-8859-b33e.ngrok-free.app/webhook",
+        webhookUrl: "https://pixempregospara.up.railway.app/webhook?ignorar=",
       },
       {
         httpsAgent,
         headers: {
           Authorization: `Bearer ${accessToken}`,
           "Content-Type": "application/json",
+          "x-skip-mtls-checking": "true",
         },
       }
     );
