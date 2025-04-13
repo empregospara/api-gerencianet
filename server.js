@@ -10,7 +10,7 @@ const axios = require("axios");
 const app = express();
 app.use(bodyParser.json());
 
-const cert = fs.readFileSync(process.env.GN_CERT);
+const cert = fs.readFileSync("producao-546000.p12");
 
 async function gerarToken() {
     const credentials = Buffer.from(`${process.env.GN_CLIENT_ID}:${process.env.GN_CLIENT_SECRET}`).toString("base64");
@@ -34,7 +34,7 @@ async function gerarCobrancaPix() {
         calendario: { expiracao: 3600 },
         devedor: { cpf: "12345678909", nome: "Cliente Teste" },
         valor: { original: "1.00" },
-        chave: "empregosparaoficial@gmail.com", // Substitua
+        chave: "empregosparaoficial@gmail.com",
         solicitacaoPagador: "Gerar currículo",
     };
 
