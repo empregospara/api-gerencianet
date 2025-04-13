@@ -5,36 +5,41 @@ const axios = require("axios");
 const cors = require("cors");
 const fs = require("fs");
 const https = require("https");
+const path = require("path");
 
 const app = express();
 app.use(cors());
 app.use(express.json());
 
-// Certificado e chave
-const cert = fs.readFileSync("certificado.pem");
-const key = fs.readFileSync("chave.pem");
-const httpsAgent = new https.Agent({ cert, key });
+const cert = fs.readFileSync(path.join(__dirname, "certificado.pem"));
+const key = fs.readFileSync(path.join(__dirname, "chave.pem"));
+const httpsAgent = new https.Agent({ cert, key, rejectUnauthorized: false });
 
 let paymentStatus = {};
 
-// Gerar cobrança
 app.get("/pagar", async (req, res) => {
   try {
-    const auth = await axios.post(
-      `${process.env.GN_ENDPOINT}/v1/authorize`,
-      {},
+    const credentials = Buffer.from(
+      `${process.env.GN_CLIENT_ID}:${process.env.GN_CLIENT_SECRET}`
+    ).toString("base64");
+
+    const tokenResponse = await axios.post(
+      `${process.env.GN_ENDPOINT}/oauth/token`,
+      { grant_type: "client_credentials" },
       {
         httpsAgent,
-        auth: {
-          username: process.env.GN_CLIENT_ID,
-          password: process.env.GN_CLIENT_SECRET,
+        headers: {
+          Authorization: `Basic ${credentials}`,
+          "Content-Type": "application/json",
         },
       }
     );
 
-    const access_token = auth.data.access_token;
+    const access_token = tokenResponse.data.access_token;
 
-    const txid = uuidv4().replace(/-/g, "").slice(0, 26) + Date.now().toString(36).slice(0, 9);
+    const txid =
+      uuidv4().replace(/-/g, "").slice(0, 26) +
+      Date.now().toString(36).slice(0, 9);
 
     const body = {
       calendario: { expiracao: 3600 },
@@ -56,10 +61,10 @@ app.get("/pagar", async (req, res) => {
       }
     );
 
-    const loc = cob.data.loc.id;
+    const locId = cob.data.loc.id;
 
     const qr = await axios.get(
-      `${process.env.GN_ENDPOINT}/v2/loc/${loc}/qrcode`,
+      `${process.env.GN_ENDPOINT}/v2/loc/${locId}/qrcode`,
       {
         httpsAgent,
         headers: {
@@ -75,11 +80,14 @@ app.get("/pagar", async (req, res) => {
     });
   } catch (err) {
     console.error("Erro ao gerar PIX:", err.response?.data || err.message);
-    res.status(500).json({ erro: "Erro ao gerar PIX: " + (err.response?.data?.message || err.message) });
+    res.status(500).json({
+      erro:
+        "Erro ao gerar PIX: " +
+        (err.response?.data?.message || err.message),
+    });
   }
 });
 
-// Webhook com log
 app.post("/webhook", (req, res) => {
   try {
     console.log("Webhook recebeu:", JSON.stringify(req.body, null, 2));
@@ -98,7 +106,6 @@ app.post("/webhook", (req, res) => {
   }
 });
 
-// Checar pagamento
 app.post("/check-payment", (req, res) => {
   try {
     const { txid } = req.body;
@@ -110,7 +117,7 @@ app.post("/check-payment", (req, res) => {
   }
 });
 
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 10000;
 app.listen(PORT, () => {
   console.log(`Pix API running on port ${PORT}`);
 });
