@@ -1,6 +1,3 @@
-Aqui está o `server.js` já ajustado com `txid` dinâmico válido conforme a especificação da Efí:
-
-```js
 require("dotenv").config();
 const fs = require("fs");
 const https = require("https");
@@ -83,6 +80,3 @@ app.get("/pagar", async (req, res) => {
 });
 
 app.listen(3000, () => console.log("API Pix rodando na porta 3000"));
-```
-
-Esse `txid` gerado agora sempre terá entre 26 e 35 caracteres alfanuméricos, como exige a Efí. Pode atualizar no repositório e testar.
