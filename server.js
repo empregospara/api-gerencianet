@@ -10,6 +10,7 @@ app.use(express.json());
 
 let paymentStatus = {};
 
+// Endpoint para gerar cobrança Pix
 app.get("/pagar", async (req, res) => {
   try {
     const credentials = Buffer.from(
@@ -76,6 +77,7 @@ app.get("/pagar", async (req, res) => {
   }
 });
 
+// Endpoint para receber notificações de pagamento
 app.post("/webhook", (req, res) => {
   res.status(200).json({}); // responde 200 antes de processar
 
@@ -94,6 +96,7 @@ app.post("/webhook", (req, res) => {
   }
 });
 
+// Endpoint para verificar status do pagamento
 app.post("/check-payment", (req, res) => {
   try {
     const { txid } = req.body;
@@ -105,7 +108,8 @@ app.post("/check-payment", (req, res) => {
   }
 });
 
-const PORT = process.env.PORT || 10000;
+// Inicia o servidor na porta fornecida pelo Railway ou 8080
+const PORT = process.env.PORT || 8080;
 app.listen(PORT, () => {
   console.log(`✅ Pix API running on port ${PORT}`);
 });
