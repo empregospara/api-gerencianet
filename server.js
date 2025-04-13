@@ -3,17 +3,10 @@ const express = require("express");
 const { v4: uuidv4 } = require("uuid");
 const axios = require("axios");
 const cors = require("cors");
-const fs = require("fs");
-const https = require("https");
-const path = require("path");
 
 const app = express();
 app.use(cors());
 app.use(express.json());
-
-const cert = fs.readFileSync(path.join(__dirname, "certificado.pem"));
-const key = fs.readFileSync(path.join(__dirname, "chave.pem"));
-const httpsAgent = new https.Agent({ cert, key, rejectUnauthorized: false });
 
 let paymentStatus = {};
 
@@ -24,10 +17,9 @@ app.get("/pagar", async (req, res) => {
     ).toString("base64");
 
     const tokenResponse = await axios.post(
-      "https://pix.api.efipay.com.br/oauth/token",
+      `${process.env.GN_ENDPOINT}/oauth/token`,
       { grant_type: "client_credentials" },
       {
-        httpsAgent,
         headers: {
           Authorization: `Basic ${credentials}`,
           "Content-Type": "application/json",
@@ -50,10 +42,9 @@ app.get("/pagar", async (req, res) => {
     };
 
     const cob = await axios.put(
-      "https://pix.api.efipay.com.br/v2/cob/" + txid,
+      `${process.env.GN_ENDPOINT}/v2/cob/${txid}`,
       body,
       {
-        httpsAgent,
         headers: {
           Authorization: `Bearer ${access_token}`,
           "Content-Type": "application/json",
@@ -64,9 +55,8 @@ app.get("/pagar", async (req, res) => {
     const locId = cob.data.loc.id;
 
     const qr = await axios.get(
-      `https://pix.api.efipay.com.br/v2/loc/${locId}/qrcode`,
+      `${process.env.GN_ENDPOINT}/v2/loc/${locId}/qrcode`,
       {
-        httpsAgent,
         headers: {
           Authorization: `Bearer ${access_token}`,
         },
@@ -81,14 +71,14 @@ app.get("/pagar", async (req, res) => {
   } catch (err) {
     console.error("Erro ao gerar PIX:", err.response?.data || err.message);
     res.status(500).json({
-      erro:
-        "Erro ao gerar PIX: " +
-        (err.response?.data?.message || err.message),
+      erro: "Erro ao gerar PIX: " + (err.response?.data?.message || err.message),
     });
   }
 });
 
 app.post("/webhook", (req, res) => {
+  res.status(200).json({}); // responde 200 antes de processar
+
   try {
     console.log("Webhook recebeu:", JSON.stringify(req.body, null, 2));
     const { pix } = req.body;
@@ -99,10 +89,8 @@ app.post("/webhook", (req, res) => {
         console.log("Pagamento confirmado para txid:", txid);
       }
     }
-    res.sendStatus(200);
   } catch (err) {
-    console.error("Erro no webhook:", err);
-    res.sendStatus(500);
+    console.error("Erro ao processar webhook:", err);
   }
 });
 
@@ -117,13 +105,7 @@ app.post("/check-payment", (req, res) => {
   }
 });
 
-// 🔐 HTTPS para Pix e webhook
-https.createServer({ key, cert }, app).listen(443, () => {
-  console.log("Pix API HTTPS running on port 443");
-});
-
-// 🌐 HTTP para Render detectar e aceitar o deploy
 const PORT = process.env.PORT || 10000;
 app.listen(PORT, () => {
-  console.log(`Pix API HTTP fallback running on port ${PORT}`);
+  console.log(`✅ Pix API running on port ${PORT}`);
 });
