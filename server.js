@@ -11,6 +11,7 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
+// Configuração dos certificados para a Gerencianet
 const cert = fs.readFileSync(path.join(__dirname, "certificado.pem"));
 const key = fs.readFileSync(path.join(__dirname, "chave.pem"));
 
@@ -25,8 +26,13 @@ let paymentStatus = {};
 
 app.get("/pagar", async (req, res) => {
   try {
+    // Obter o token de autenticação
     const client_id = process.env.CLIENT_ID;
     const client_secret = process.env.CLIENT_SECRET;
+
+    if (!client_id || !client_secret) {
+      throw new Error("CLIENT_ID ou CLIENT_SECRET não configurados.");
+    }
 
     const basicAuth = Buffer.from(`${client_id}:${client_secret}`).toString("base64");
 
@@ -44,8 +50,10 @@ app.get("/pagar", async (req, res) => {
 
     const access_token = tokenResponse.data.access_token;
 
+    // Gerar um txid único
     const txid = uuidv4().replace(/-/g, "").slice(0, 26) + Date.now().toString(36).slice(0, 9);
 
+    // Criar a cobrança Pix
     const body = {
       calendario: { expiracao: 3600 },
       devedor: { cpf: "12345678909", nome: "Cliente Teste" },
@@ -68,47 +76,64 @@ app.get("/pagar", async (req, res) => {
 
     const loc = pixResponse.data.loc.id;
 
+    // Obter o QR Code
     const qrCodeResponse = await axios.get(
-      `https://pix.api.efipay.com.br/v2/loc/${loc}/qrcode`, // Linha corrigida: string fechada e endpoint completo
+      `https://pix.api.efipay.com.br/v2/loc/${loc}/qrcode`,
       {
         httpsAgent,
         headers: {
           Authorization: `Bearer ${access_token}`,
+          "Content-Type": "application/json",
         },
       }
     );
 
+    // Retornar os dados do Pix
     res.json({
       qrCodeBase64: qrCodeResponse.data.imagemQrcode,
       pixString: qrCodeResponse.data.qrcode,
-      txid: txid, // Inclua o txid na resposta para uso no frontend
+      txid: txid,
     });
   } catch (err) {
     console.error("Erro ao gerar PIX:", err.message);
-    res.status(500).json({ erro: "Erro ao gerar PIX" });
+    res.status(500).json({ erro: "Erro ao gerar PIX: " + err.message });
   }
 });
 
 // Rota para receber notificações da Gerencianet
-app.post('/webhook', (req, res) => {
-  const { pix } = req.body;
-  if (pix && pix.length > 0) {
-    const { txid, status } = pix[0];
-    if (status === 'CONCLUIDA') {
-      paymentStatus[txid] = true;
-      console.log(`Pagamento ${txid} confirmado`);
+app.post("/webhook", (req, res) => {
+  try {
+    const { pix } = req.body;
+    if (pix && pix.length > 0) {
+      const { txid, status } = pix[0];
+      if (status === "CONCLUIDA") {
+        paymentStatus[txid] = true;
+        console.log(`Pagamento ${txid} confirmado`);
+      }
     }
+    res.sendStatus(200);
+  } catch (err) {
+    console.error("Erro no webhook:", err.message);
+    res.sendStatus(500);
   }
-  res.sendStatus(200);
 });
 
 // Rota para o frontend verificar o status do pagamento
-app.post('/check-payment', (req, res) => {
-  const { txid } = req.body;
-  const isPaid = paymentStatus[txid] || false;
-  res.json({ paid: isPaid });
+app.post("/check-payment", (req, res) => {
+  try {
+    const { txid } = req.body;
+    if (!txid) {
+      return res.status(400).json({ erro: "txid não fornecido" });
+    }
+    const isPaid = paymentStatus[txid] || false;
+    res.json({ paid: isPaid });
+  } catch (err) {
+    console.error("Erro ao verificar pagamento:", err.message);
+    res.status(500).json({ erro: "Erro ao verificar pagamento" });
+  }
 });
 
+// Configurar a porta para a Render
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log(`API Pix rodando na porta ${PORT}`);
