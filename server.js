@@ -12,14 +12,30 @@ let paymentStatus = {};
 
 app.get("/pagar", async (req, res) => {
   try {
-    // Usar o token Bearer fornecido diretamente
-    const access_token =
-      "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0eXBlIjoiYWNjZXNzX3Rva2VuIiwiY2xpZW50SWQiOiJDbGllbnRfSWRfYTI3MjMxZDg4MjE3MzNiNjJjYmRmNjhiZWE4MjZkNzIyNTc4MmFlMyIsImFjY291bnQiOjU0NjAwMCwiYWNjb3VudF9jb2RlIjoiZWU3YmJiYTg1NzI2NDM0NjQ2ZWFhOTVjMGZkNmJjMzAiLCJzY29wZXMiOlsiY29iLnJlYWQiLCJjb2Iud3JpdGUiLCJjb2J2LnJlYWQiLCJjb2J2LndyaXRlIiwiZ24uYmFsYW5jZS5yZWFkIiwiZ24ucGl4LmV2cC5yZWFkIiwiZ24ucGl4LmV2cC53cml0ZSIsImduLnBpeC5zZW5kLnJlYWQiLCJnbi5yZXBvcnRzLnJlYWQiLCJnbi5yZXBvcnRzLndyaXRlIiwiZ24uc2V0dGluZ3MucmVhZCIsImduLnNldHRpbmdzLndyaXRlIiwiZ24uc3BsaXQucmVhZCIsImduLnNwbGl0LndyaXRlIiwibG90ZWNvYnYucmVhZCIsImxvdGVjb2J2LndyaXRlIiwicGF5bG9hZGxvY2F0aW9uLnJlYWQiLCJwYXlsb2FkbG9jYXRpb24ud3JpdGUiLCJwaXgucmVhZCIsInBpeC5zZW5kIiwicGl4LndyaXRlIiwid2ViaG9vay5yZWFkIiwid2ViaG9vay53cml0ZSJdLCJleHBpcmVzSW4iOjM2MDAsImNvbmZpZ3VyYXRpb24iOnsieDV0I1MyNTYiOiJ5VFZoUkdSWnUyMFZyMkRaaDNpUkIxUllBR0JFY0pOUjZWMzJOTk1vdHVjPSJ9LCJpYXQiOjE3NDQ1MTQzNzksImV4cCI6MTc0NDUxNzk3OX0.QHEgeT73DdVs4HvqyllPGdmbj1-AUr2bD4lcixM9jMA";
+    // Gerar access_token dinâmico
+    const credentials = Buffer.from(
+      `${process.env.GN_CLIENT_ID}:${process.env.GN_CLIENT_SECRET}`
+    ).toString("base64");
 
-    // Generate a unique txid
-    const txid = uuidv4().replace(/-/g, "").slice(0, 26) + Date.now().toString(36).slice(0, 9);
+    const tokenResponse = await axios.post(
+      `${process.env.GN_ENDPOINT}/oauth/token`,
+      { grant_type: "client_credentials" },
+      {
+        headers: {
+          Authorization: `Basic ${credentials}`,
+          "Content-Type": "application/json",
+        },
+      }
+    );
 
-    // Create Pix charge
+    const access_token = tokenResponse.data.access_token;
+
+    // Criar txid único
+    const txid =
+      uuidv4().replace(/-/g, "").slice(0, 26) +
+      Date.now().toString(36).slice(0, 9);
+
+    // Criar cobrança
     const body = {
       calendario: { expiracao: 3600 },
       devedor: { cpf: "12345678909", nome: "Cliente Teste" },
@@ -41,7 +57,7 @@ app.get("/pagar", async (req, res) => {
 
     const loc = pixResponse.data.loc.id;
 
-    // Get QR code
+    // Obter QR Code
     const qrCodeResponse = await axios.get(
       `${process.env.GN_ENDPOINT}/v2/loc/${loc}/qrcode`,
       {
@@ -57,8 +73,10 @@ app.get("/pagar", async (req, res) => {
       txid: txid,
     });
   } catch (err) {
-    console.error("Error:", err.response?.data || err.message);
-    res.status(500).json({ erro: "Erro ao gerar PIX: " + (err.response?.data?.message || err.message) });
+    console.error("Erro:", err.response?.data || err.message);
+    res
+      .status(500)
+      .json({ erro: "Erro ao gerar PIX: " + (err.response?.data?.message || err.message) });
   }
 });
 
@@ -88,7 +106,7 @@ app.post("/check-payment", (req, res) => {
   }
 });
 
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 10000;
 app.listen(PORT, () => {
   console.log(`Pix API running on port ${PORT}`);
 });
