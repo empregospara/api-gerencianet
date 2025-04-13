@@ -20,7 +20,10 @@ const httpsAgent = new https.Agent({
   rejectUnauthorized: false,
 });
 
-app.post("/pagar", async (req, res) => {
+// Armazenar status de pagamento temporariamente (use um banco de dados em produção)
+let paymentStatus = {};
+
+app.get("/pagar", async (req, res) => {
   try {
     const client_id = process.env.CLIENT_ID;
     const client_secret = process.env.CLIENT_SECRET;
@@ -52,40 +55,4 @@ app.post("/pagar", async (req, res) => {
     };
 
     const pixResponse = await axios.put(
-      `https://pix.api.efipay.com.br/v2/cob/${txid}`,
-      body,
-      {
-        httpsAgent,
-        headers: {
-          Authorization: `Bearer ${access_token}`,
-          "Content-Type": "application/json",
-        },
-      }
-    );
-
-    const loc = pixResponse.data.loc.id;
-
-    const qrCodeResponse = await axios.get(
-      `https://pix.api.efipay.com.br/v2/loc/${loc}/qrcode`,
-      {
-        httpsAgent,
-        headers: {
-          Authorization: `Bearer ${access_token}`,
-        },
-      }
-    );
-
-    res.json({
-      imagem_base64: qrCodeResponse.data.imagemQrcode,
-      codigo_pix: qrCodeResponse.data.qrcode,
-    });
-  } catch (err) {
-    console.error("Erro ao gerar PIX:", err.message);
-    res.status(500).json({ erro: "Erro ao gerar PIX" });
-  }
-});
-
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-  console.log(`API Pix rodando na porta ${PORT}`);
-});
+      `https://pix.api.efipay.com.br/
