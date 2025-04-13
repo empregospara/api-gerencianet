@@ -24,7 +24,7 @@ app.get("/pagar", async (req, res) => {
     ).toString("base64");
 
     const tokenResponse = await axios.post(
-      `${process.env.GN_ENDPOINT}/oauth/token`,
+      "https://pix.api.efipay.com.br/oauth/token",
       { grant_type: "client_credentials" },
       {
         httpsAgent,
@@ -43,14 +43,14 @@ app.get("/pagar", async (req, res) => {
 
     const body = {
       calendario: { expiracao: 3600 },
-      devedor: { cpf: "12345678909", nome: "Cliente Teste" },
+      devedor: { cpf: "01810422230", nome: "Cliente Teste" },
       valor: { original: "0.01" },
       chave: "empregosparaoficial@gmail.com",
       solicitacaoPagador: "Gerar currículo",
     };
 
     const cob = await axios.put(
-      `${process.env.GN_ENDPOINT}/v2/cob/${txid}`,
+      "https://pix.api.efipay.com.br/v2/cob/" + txid,
       body,
       {
         httpsAgent,
@@ -64,7 +64,7 @@ app.get("/pagar", async (req, res) => {
     const locId = cob.data.loc.id;
 
     const qr = await axios.get(
-      `${process.env.GN_ENDPOINT}/v2/loc/${locId}/qrcode`,
+      `https://pix.api.efipay.com.br/v2/loc/${locId}/qrcode`,
       {
         httpsAgent,
         headers: {
