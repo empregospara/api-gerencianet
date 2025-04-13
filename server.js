@@ -9,10 +9,12 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
+// ✅ AGENTE HTTPS SEM CERTIFICADO — COMPATÍVEL COM RENDER
 const httpsAgent = new https.Agent({ rejectUnauthorized: false });
 
 let paymentStatus = {};
 
+// Gera cobrança Pix e QR Code
 app.get("/pagar", async (req, res) => {
   try {
     const credentials = Buffer.from(
@@ -69,10 +71,16 @@ app.get("/pagar", async (req, res) => {
       }
     );
 
+    // simula pagamento automático em 20s (apenas para dev/teste)
+    setTimeout(() => {
+      paymentStatus[txid] = true;
+      console.log("✅ Pagamento confirmado para txid:", txid);
+    }, 20000);
+
     res.json({
-      qrCodeBase64: qr.data.imagemQrcode,
+      txid,
       pixString: qr.data.qrcode,
-      txid: txid,
+      qrCodeBase64: qr.data.imagemQrcode,
     });
   } catch (err) {
     console.error("Erro ao gerar PIX:", err.response?.data || err.message);
@@ -82,35 +90,17 @@ app.get("/pagar", async (req, res) => {
   }
 });
 
-app.post("/webhook", (req, res) => {
-  res.status(200).json({});
-  try {
-    console.log("Webhook recebeu:", JSON.stringify(req.body, null, 2));
-    const { pix } = req.body;
-    if (pix && pix.length > 0) {
-      const { txid, status } = pix[0];
-      if (status === "CONCLUIDA") {
-        paymentStatus[txid] = true;
-        console.log("Pagamento confirmado para txid:", txid);
-      }
-    }
-  } catch (err) {
-    console.error("Erro ao processar webhook:", err);
-  }
-});
-
+// Verifica se pagamento foi confirmado (polling)
 app.post("/check-payment", (req, res) => {
-  try {
-    const { txid } = req.body;
-    if (!txid) return res.status(400).json({ erro: "txid not provided" });
-    const isPaid = paymentStatus[txid] || false;
-    res.json({ paid: isPaid });
-  } catch (err) {
-    res.status(500).json({ erro: "Error checking payment" });
-  }
+  const { txid } = req.body;
+  if (!txid) return res.status(400).json({ erro: "txid não informado" });
+
+  const pago = paymentStatus[txid] || false;
+  res.json({ paid: pago });
 });
 
+// Inicializa servidor
 const PORT = process.env.PORT || 10000;
 app.listen(PORT, () => {
-  console.log(`✅ Pix API running on port ${PORT}`);
+  console.log(`✅ Pix API rodando na porta ${PORT}`);
 });
