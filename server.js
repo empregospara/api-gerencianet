@@ -33,8 +33,8 @@ async function gerarCobrancaPix() {
     const payload = {
         calendario: { expiracao: 3600 },
         devedor: { cpf: "12345678909", nome: "Cliente Teste" },
-        valor: { original: "3.00" },
-        chave: "SEU_EMAIL_OU_CHAVE_PIX", // Substitua
+        valor: { original: "1.00" },
+        chave: "empregosparaoficial@gmail.com", // Substitua
         solicitacaoPagador: "Gerar currículo",
     };
 
